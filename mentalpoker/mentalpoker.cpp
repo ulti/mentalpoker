@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 #endif
 {
 	BIGNUM *rangemax,*gcd,*p,*q,*n,*phi,*e1,*e2,*d1,*d2;
+	BIGNUM *data,*enc1,*enc2,*dec1,*dec2;
 	BN_CTX *cntx = BN_CTX_new();
 
 	srand((unsigned int)time(NULL));
@@ -86,12 +87,48 @@ int main(int argc, char *argv[])
 	d1 = BN_new();
 	BN_mod_inverse(d1,e1,phi,cntx);
 
+	// choose a different e that is also relatively prime
+	// to phi for the second party
+	e2 = BN_new();
+	gcd = BN_new();
+	while(1) {
+		BN_rand_range(e2,rangemax);
+		BN_gcd(gcd,e2,phi,cntx);
+		if(BN_is_one(gcd))
+			break;
+	}
+	BN_free(gcd);
+
+	// calculate d for second party
+	d2 = BN_new();
+	BN_mod_inverse(d2,e2,phi,cntx);
+
 	printf("p: "); bn_print(p); printf("\n");
 	printf("q: "); bn_print(q); printf("\n");
 	printf("phi: "); bn_print(phi); printf("\n");
 	printf("n: "); bn_print(n); printf("\n");
 	printf("e1: "); bn_print(e1); printf("\n");
 	printf("d1: "); bn_print(d1); printf("\n");
+	printf("e2: "); bn_print(e2); printf("\n");
+	printf("d2: "); bn_print(d2); printf("\n");
+
+	// now to see if encrypting/decrypting works
+	data = BN_new();
+	enc1 = BN_new();
+	enc2 = BN_new();
+	dec1 = BN_new();
+	dec2 = BN_new();
+	BN_set_word(data, 0x42);
+	BN_mod_exp(enc1,data,e1,n,cntx);
+	BN_mod_exp(enc2,enc1,e2,n,cntx);
+	BN_mod_exp(dec1,enc2,d1,n,cntx);
+	BN_mod_exp(dec2,dec1,d2,n,cntx);
+
+	printf("data: "); bn_print(data); printf("\n");
+	printf("enc1: "); bn_print(enc1); printf("\n");
+	printf("enc2: "); bn_print(enc2); printf("\n");
+	printf("dec1: "); bn_print(dec1); printf("\n");
+	printf("dec2: "); bn_print(dec2); printf("\n");
 
 	BN_free(rangemax);
 	BN_free(p);
@@ -100,6 +137,8 @@ int main(int argc, char *argv[])
 	BN_free(n);
 	BN_free(e1);
 	BN_free(d1);
+	BN_free(e2);
+	BN_free(d2);
 	BN_CTX_free(cntx);
 
 	printf("Press Enter to continue\n");
